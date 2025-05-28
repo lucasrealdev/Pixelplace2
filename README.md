@@ -1,54 +1,87 @@
-# React + TypeScript + Vite
+# 🎮 PixelPlace
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+**PixelPlace** é uma plataforma inovadora para gamers modernos, onde você pode jogar diretamente do navegador, trocar jogos e contas com outros usuários, e aproveitar uma experiência segura, responsiva e intuitiva.
 
-Currently, two official plugins are available:
+## ✨ Por que escolher o PixelPlace?
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **Jogos direto no navegador:** Jogue instantaneamente, sem downloads ou instalações, de qualquer dispositivo.
+- **Troca de jogos entre usuários:** Ofereça seus jogos para troca e descubra novos títulos sem gastar mais.
+- **Troca de contas:** Negocie contas inteiras (com todos os jogos), ampliando suas possibilidades.
+- **Experiência moderna, segura e responsiva:** Interface intuitiva, design responsivo e total segurança para suas transações e dados.
 
-## Expanding the ESLint configuration
+---
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## 🖥️ Tecnologias Utilizadas
 
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+- React 19 + TypeScript
+- Vite
+- TailwindCSS
+- React Router DOM
+- Supabase
+- Lucide React (ícones)
+- React Toastify (notificações)
+
+---
+
+## 📁 Estrutura do Projeto
+
+```
+pixelplace2/
+├── public/
+├── src/
+│   ├── assets/
+│   ├── components/
+│   ├── contexts/
+│   ├── helpers/
+│   ├── screens/
+│   ├── services/
+│   └── App.tsx
+├── package.json
+└── README.md
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+---
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## 🚀 Funcionalidades Principais
 
-export default tseslint.config({
-  plugins: {
-    // Add the react-x and react-dom plugins
-    'react-x': reactX,
-    'react-dom': reactDom,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended typescript rules
-    ...reactX.configs['recommended-typescript'].rules,
-    ...reactDom.configs.recommended.rules,
-  },
-})
+- Loja de Jogos
+- Biblioteca Pessoal
+- Troca de Jogos e Contas
+- Histórico de Transações
+- Administração de Jogos (restrito)
+- Ajuda e Diferenciais
+- Notificações
+- Autenticação e Segurança
+
+---
+
+## 🗺️ Navegação
+
+- `/` Home
+- `/store` Loja
+- `/wishlist` Lista de Desejos
+- `/library` Biblioteca
+- `/trade` Troca
+- `/transactions` Transações
+- `/cart` Carrinho
+- `/help` Ajuda
+- `/admin` Administração
+
+---
+
+## ⚙️ Como Rodar Localmente
+
+```bash
+git clone https://github.com/seu-usuario/pixelplace2.git
+cd pixelplace2
+npm install
+npm run dev
 ```
+
+Acesse [http://localhost:5173](http://localhost:5173) no navegador.
+
+---
+
+## 📄 Licença
+
+Este projeto está sob a licença MIT.
