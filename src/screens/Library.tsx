@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { Repeat, Play, Loader2, X } from "lucide-react";
 import Sidebar from "../components/menu/Sidebar";
 import GameCard from "../components/GameCard";
@@ -7,8 +7,8 @@ import { useUserGames, useGames } from "../contexts/AppDataContext";
 import { getFilteredUserGames } from "../helpers/uiHelpers";
 import { useStoreActions } from "../helpers/useStoreActions";
 import type { UserGame } from "../services/entities";
-import { getGameSwfUrl } from "../services/dataService";
 import Topbar from "../components/menu/Topbar";
+import { usePlayGame } from "../helpers/usePlayGame";
 
 declare global { interface Window { RufflePlayer: any } }
 
@@ -20,8 +20,7 @@ export default function Library() {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [loadingIds, setLoadingIds] = useState<number[]>([]);
   const [loadingGameIds, setLoadingGameIds] = useState<number[]>([]);
-  const [swfUrl, setSwfUrl] = useState<string | null>(null);
-  const ruffleContainerRef = useRef<HTMLDivElement>(null);
+  const { playGame, isPlaying, swfUrl, closeEmulator, ruffleContainerRef } = usePlayGame();
   const { addToTrade, removeFromTrade } = useStoreActions();
 
   const handleTagClick = (tag: string) => {
@@ -41,49 +40,11 @@ export default function Library() {
   };
 
   const handlePlayGame = async (userGame: UserGame) => {
-    try {
-      setLoadingGameIds((prev) => [...prev, userGame.id]);
-
-      const url = await getGameSwfUrl(userGame.game_id, userGame.user_id);
-      if (!url) throw new Error("URL do SWF não encontrada.");
-
-      const response = await fetch(url);
-      const arrayBuffer = await response.arrayBuffer();
-      const blob = new Blob([arrayBuffer], { type: "application/x-shockwave-flash" });
-      const blobUrl = URL.createObjectURL(blob);
-
-      setSwfUrl(blobUrl);
-
-      // Aguarda o emulador montar e carregar
-      setTimeout(() => {
-        if (ruffleContainerRef.current && window.RufflePlayer) {
-          ruffleContainerRef.current.innerHTML = "";
-          const ruffle = window.RufflePlayer.newest();
-          const player = ruffle.createPlayer();
-          player.style.width = "100%";
-          player.style.height = "100%";
-          player.style.maxWidth = "100%";
-          player.style.maxHeight = "100%";
-          player.style.objectFit = "contain";
-          player.style.display = "block";
-          ruffleContainerRef.current.appendChild(player);
-          player.load(blobUrl);
-        }
-      }, 100);
-    } catch (err) {
-      console.error("Erro ao carregar SWF:", err);
-    } finally {
-      setTimeout(() => {
-        setLoadingGameIds((prev) => prev.filter((id) => id !== userGame.id));
-      }, 1000); // pequena espera extra para evitar piscar
-    }
-  };
-
-  const closeEmulator = () => {
-    if (swfUrl?.startsWith("blob:")) {
-      URL.revokeObjectURL(swfUrl);
-    }
-    setSwfUrl(null);
+    setLoadingGameIds((prev) => [...prev, userGame.id]);
+    await playGame(userGame);
+    setTimeout(() => {
+      setLoadingGameIds((prev) => prev.filter((id) => id !== userGame.id));
+    }, 1000);
   };
 
   const filteredGames = getFilteredUserGames(userGames, games, search, selectedTags)
@@ -165,8 +126,7 @@ export default function Library() {
           </div>
         </div>
 
-        {/* Emulador Ruffle fullscreen com WebComponent */}
-        {swfUrl && (
+        {isPlaying && swfUrl && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-90">
             <button
               onClick={closeEmulator}

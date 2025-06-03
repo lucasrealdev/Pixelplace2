@@ -1,10 +1,11 @@
 import React, { useMemo, useRef, useEffect, useState } from "react";
 import { X, ShoppingCart, Heart, Repeat, Play, Tag, Clock, CheckCircle, Loader2 } from "lucide-react";
-import { useAuth, useUserGames, useWishlist } from "../contexts/AppDataContext";
+import { useAuth, useUserGames, useWishlist, useCart } from "../contexts/AppDataContext";
 import { useStoreActions } from "../helpers/useStoreActions";
 import { useCartActions } from "../helpers/useCartActions";
 import type { Game } from "../services/entities";
 import { toast } from "react-toastify";
+import { usePlayGame } from "../helpers/usePlayGame";
 
 interface GameDetailModalProps {
   game: Game;
@@ -24,11 +25,14 @@ function getDiscountedPrice(game: Game): number {
 }
 
 const GameDetailModal: React.FC<GameDetailModalProps> = ({ game, open, onClose }) => {
+  if (!open || !game) return null;
   const { currentUser } = useAuth();
   const { userGames } = useUserGames();
   const { wishlistGames } = useWishlist();
+  const { cart } = useCart();
   const { addToWishlist, removeFromWishlist, addToTrade, removeFromTrade } = useStoreActions();
   const { addToCart } = useCartActions();
+  const { playGame, isPlaying, swfUrl, closeEmulator, ruffleContainerRef, loading: loadingPlay } = usePlayGame();
   const modalRef = useRef<HTMLDivElement>(null);
 
   // Loading states
@@ -93,6 +97,11 @@ const GameDetailModal: React.FC<GameDetailModalProps> = ({ game, open, onClose }
       toast.info("Você precisa estar logado para adicionar ao carrinho.");
       return;
     }
+    // Verifica se já está no carrinho
+    if (cart && cart.items.some(item => item.game_id === game.id)) {
+      toast.info("Este jogo já está no carrinho!");
+      return;
+    }
     setLoadingCart(true);
     try {
       await addToCart(game);
@@ -122,136 +131,74 @@ const GameDetailModal: React.FC<GameDetailModalProps> = ({ game, open, onClose }
     }
   };
   const handlePlay = () => {
-    // Redirecionar ou abrir modal de jogar (ajustar conforme sua lógica)
-    toast.info("Função de jogar não implementada.");
+    if (!userGame) return;
+    playGame(userGame);
   };
   const handleTrade = () => {
     // Redirecionar para tela de troca já filtrando pelo jogo
     window.location.href = `/trade?search=${encodeURIComponent(game.title)}`;
   };
 
-  if (!open) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
-      <div
-        ref={modalRef}
-        tabIndex={-1}
-        className="bg-gray-900 rounded-lg p-6 max-w-lg w-full border border-cyan-700 shadow-xl relative max-h-[90vh] overflow-y-auto animate-fadeIn"
-        aria-modal="true"
-        role="dialog"
-      >
-        <button
-          className="absolute top-2 right-2 text-gray-400 hover:text-white"
-          onClick={onClose}
-          aria-label="Fechar detalhes do jogo"
+    <>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
+        <div
+          ref={modalRef}
+          tabIndex={-1}
+          className="bg-gray-900 rounded-lg p-6 max-w-lg w-full border border-cyan-700 shadow-xl relative max-h-[90vh] overflow-y-auto animate-fadeIn"
+          aria-modal="true"
+          role="dialog"
         >
-          <X size={22} />
-        </button>
-        {/* Banner */}
-        {game.banner && (
-          <img src={game.banner} alt="Banner" className="w-full h-28 object-cover rounded mb-3" />
-        )}
-        {/* Capa */}
-        <div className="flex flex-col items-center mb-2">
-          <img src={game.image} alt={game.title} className="w-32 h-32 object-cover rounded shadow-lg mb-2 border-2 border-cyan-700" />
-          <h2 className="text-xl font-bold text-cyan-300 mb-2 flex items-center gap-2">
-            {game.title}
-            {!available && <Clock size={18} className="text-yellow-400" />}
-            {available && userGame && <CheckCircle size={18} className="text-green-400" />}
-          </h2>
-          {/* Lançamento futuro */}
-          {game.releaseDate && !available && (
-            <div className="text-xs text-yellow-400 mb-2">Lançamento: {new Date(game.releaseDate).toLocaleDateString()}</div>
+          <button
+            className="absolute top-2 right-2 text-gray-400 hover:text-white"
+            onClick={onClose}
+            aria-label="Fechar detalhes do jogo"
+          >
+            <X size={22} />
+          </button>
+          {/* Banner */}
+          {game.banner && (
+            <img src={game.banner} alt="Banner" className="w-full h-28 object-cover rounded mb-3" />
           )}
-          {/* Tags */}
-          {game.tags && (
-            <div className="flex flex-wrap gap-1 mb-2">
-              {game.tags.map((tag) => (
-                <span key={tag.id} className="bg-gray-800 text-xs px-2 py-0.5 rounded text-cyan-300 flex items-center gap-1"><Tag size={12} />{tag.name}</span>
-              ))}
-            </div>
-          )}
-          {/* Preço e desconto */}
-          <div className="flex items-center gap-2 mt-1">
-            {hasDiscount && (
-              <span className="bg-red-600 text-white text-xs font-bold px-2 py-1 rounded">-{game.discount}%</span>
+          {/* Capa */}
+          <div className="flex flex-col items-center mb-2">
+            <img src={game.image} alt={game.title} className="w-32 h-32 object-cover rounded shadow-lg mb-2 border-2 border-cyan-700" />
+            <h2 className="text-xl font-bold text-cyan-300 mb-2 flex items-center gap-2">
+              {game.title}
+              {!available && <Clock size={18} className="text-yellow-400" />}
+              {available && userGame && <CheckCircle size={18} className="text-green-400" />}
+            </h2>
+            {/* Lançamento futuro */}
+            {game.releaseDate && !available && (
+              <div className="text-xs text-yellow-400 mb-2">Lançamento: {new Date(game.releaseDate).toLocaleDateString()}</div>
             )}
-            {hasDiscount ? (
-              <span className="text-cyan-400 font-bold text-base flex items-center gap-2">
-                <span className="line-through text-gray-400 text-sm">R$ {game.price}</span>
-                <span>R$ {getDiscountedPrice(game)}</span>
-              </span>
-            ) : (
-              <span className="text-cyan-400 font-bold text-base">R$ {game.price}</span>
+            {/* Tags */}
+            {game.tags && (
+              <div className="flex flex-wrap gap-1 mb-2">
+                {game.tags.map((tag) => (
+                  <span key={tag.id} className="bg-gray-800 text-xs px-2 py-0.5 rounded text-cyan-300 flex items-center gap-1"><Tag size={12} />{tag.name}</span>
+                ))}
+              </div>
             )}
-          </div>
-        </div>
-        {/* Ações dinâmicas */}
-        <div className="flex flex-col gap-2 mt-4">
-          {isUpcoming ? (
-            inWishlist ? (
-              <button
-                className="w-full py-2 rounded bg-red-700 hover:bg-red-800 text-white font-semibold text-sm flex items-center justify-center gap-2 transition"
-                onClick={handleRemoveFromWishlist}
-                disabled={loadingRemoveWishlist}
-              >
-                {loadingRemoveWishlist ? <Loader2 size={18} className="animate-spin" /> : <X size={18} />} Remover da lista de desejos
-              </button>
-            ) : (
-              <button
-                className="w-full py-2 rounded bg-pink-600 hover:bg-pink-700 text-white font-semibold text-sm flex items-center justify-center gap-2 transition"
-                onClick={handleAddToWishlist}
-                disabled={loadingWishlist}
-              >
-                {loadingWishlist ? <Loader2 size={18} className="animate-spin" /> : <Heart size={18} />} Adicionar à lista de desejos
-              </button>
-            )
-          ) : userGame ? (
-            <>
-              <button
-                className="w-full py-2 rounded bg-cyan-600 hover:bg-cyan-700 text-white font-semibold text-sm flex items-center justify-center gap-2 transition"
-                onClick={handlePlay}
-              >
-                <Play size={18} /> Jogar
-              </button>
-              <button
-                className={inTrade ? "w-full py-2 rounded bg-red-700 hover:bg-red-800 text-white font-semibold text-sm flex items-center justify-center gap-2 transition" : "w-full py-2 rounded bg-blue-900/80 hover:bg-blue-800 text-cyan-300 font-semibold text-sm flex items-center justify-center gap-2 border border-cyan-700 transition"}
-                onClick={inTrade ? handleRemoveFromTrade : handleAddToTrade}
-                disabled={inTrade ? loadingRemoveTrade : loadingTrade}
-              >
-                {inTrade
-                  ? loadingRemoveTrade ? <Loader2 size={18} className="animate-spin" /> : <Repeat size={18} />
-                  : loadingTrade ? <Loader2 size={18} className="animate-spin" /> : <Repeat size={18} />
-                }
-                {inTrade ? "Remover da troca" : "Adicionar para troca"}
-              </button>
-              {inWishlist && (
-                <button
-                  className="w-full py-2 rounded bg-red-700 hover:bg-red-800 text-white font-semibold text-sm flex items-center justify-center gap-2 transition"
-                  onClick={handleRemoveFromWishlist}
-                  disabled={loadingRemoveWishlist}
-                >
-                  {loadingRemoveWishlist ? <Loader2 size={18} className="animate-spin" /> : <X size={18} />} Remover da lista de desejos
-                </button>
+            {/* Preço e desconto */}
+            <div className="flex items-center gap-2 mt-1">
+              {hasDiscount && (
+                <span className="bg-red-600 text-white text-xs font-bold px-2 py-1 rounded">-{game.discount}%</span>
               )}
-            </>
-          ) : (
-            <>
-              <button
-                className="w-full py-2 rounded bg-cyan-600 hover:bg-cyan-700 text-white font-semibold text-sm flex items-center justify-center gap-2 transition"
-                onClick={handleAddToCart}
-                disabled={loadingCart}
-              >
-                {loadingCart ? <Loader2 size={18} className="animate-spin" /> : <ShoppingCart size={18} />} Adicionar ao carrinho
-              </button>
-              <button
-                className="w-full py-2 rounded bg-blue-900/80 hover:bg-blue-800 text-cyan-300 font-semibold text-sm flex items-center justify-center gap-2 border border-cyan-700 transition"
-                onClick={handleTrade}
-              >
-                <Repeat size={18} /> Trocar por outro jogo
-              </button>
-              {inWishlist ? (
+              {hasDiscount ? (
+                <span className="text-cyan-400 font-bold text-base flex items-center gap-2">
+                  <span className="line-through text-gray-400 text-sm">R$ {game.price}</span>
+                  <span>R$ {getDiscountedPrice(game)}</span>
+                </span>
+              ) : (
+                <span className="text-cyan-400 font-bold text-base">R$ {game.price}</span>
+              )}
+            </div>
+          </div>
+          {/* Ações dinâmicas */}
+          <div className="flex flex-col gap-2 mt-4">
+            {isUpcoming ? (
+              inWishlist ? (
                 <button
                   className="w-full py-2 rounded bg-red-700 hover:bg-red-800 text-white font-semibold text-sm flex items-center justify-center gap-2 transition"
                   onClick={handleRemoveFromWishlist}
@@ -267,12 +214,90 @@ const GameDetailModal: React.FC<GameDetailModalProps> = ({ game, open, onClose }
                 >
                   {loadingWishlist ? <Loader2 size={18} className="animate-spin" /> : <Heart size={18} />} Adicionar à lista de desejos
                 </button>
-              )}
-            </>
-          )}
+              )
+            ) : userGame ? (
+              <>
+                <button
+                  className="w-full py-2 rounded bg-cyan-600 hover:bg-cyan-700 text-white font-semibold text-sm flex items-center justify-center gap-2 transition"
+                  onClick={handlePlay}
+                  disabled={loadingPlay}
+                >
+                  {loadingPlay ? <Loader2 size={18} className="animate-spin" /> : <Play size={18} />} Jogar
+                </button>
+                <button
+                  className={inTrade ? "w-full py-2 rounded bg-red-700 hover:bg-red-800 text-white font-semibold text-sm flex items-center justify-center gap-2 transition" : "w-full py-2 rounded bg-blue-900/80 hover:bg-blue-800 text-cyan-300 font-semibold text-sm flex items-center justify-center gap-2 border border-cyan-700 transition"}
+                  onClick={inTrade ? handleRemoveFromTrade : handleAddToTrade}
+                  disabled={inTrade ? loadingRemoveTrade : loadingTrade}
+                >
+                  {inTrade
+                    ? loadingRemoveTrade ? <Loader2 size={18} className="animate-spin" /> : <Repeat size={18} />
+                    : loadingTrade ? <Loader2 size={18} className="animate-spin" /> : <Repeat size={18} />
+                  }
+                  {inTrade ? "Remover da troca" : "Adicionar para troca"}
+                </button>
+                {inWishlist && (
+                  <button
+                    className="w-full py-2 rounded bg-red-700 hover:bg-red-800 text-white font-semibold text-sm flex items-center justify-center gap-2 transition"
+                    onClick={handleRemoveFromWishlist}
+                    disabled={loadingRemoveWishlist}
+                  >
+                    {loadingRemoveWishlist ? <Loader2 size={18} className="animate-spin" /> : <X size={18} />} Remover da lista de desejos
+                  </button>
+                )}
+              </>
+            ) : (
+              <>
+                <button
+                  className="w-full py-2 rounded bg-cyan-600 hover:bg-cyan-700 text-white font-semibold text-sm flex items-center justify-center gap-2 transition"
+                  onClick={handleAddToCart}
+                  disabled={loadingCart}
+                >
+                  {loadingCart ? <Loader2 size={18} className="animate-spin" /> : <ShoppingCart size={18} />} Adicionar ao carrinho
+                </button>
+                <button
+                  className="w-full py-2 rounded bg-blue-900/80 hover:bg-blue-800 text-cyan-300 font-semibold text-sm flex items-center justify-center gap-2 border border-cyan-700 transition"
+                  onClick={handleTrade}
+                >
+                  <Repeat size={18} /> Trocar por outro jogo
+                </button>
+                {inWishlist ? (
+                  <button
+                    className="w-full py-2 rounded bg-red-700 hover:bg-red-800 text-white font-semibold text-sm flex items-center justify-center gap-2 transition"
+                    onClick={handleRemoveFromWishlist}
+                    disabled={loadingRemoveWishlist}
+                  >
+                    {loadingRemoveWishlist ? <Loader2 size={18} className="animate-spin" /> : <X size={18} />} Remover da lista de desejos
+                  </button>
+                ) : (
+                  <button
+                    className="w-full py-2 rounded bg-pink-600 hover:bg-pink-700 text-white font-semibold text-sm flex items-center justify-center gap-2 transition"
+                    onClick={handleAddToWishlist}
+                    disabled={loadingWishlist}
+                  >
+                    {loadingWishlist ? <Loader2 size={18} className="animate-spin" /> : <Heart size={18} />} Adicionar à lista de desejos
+                  </button>
+                )}
+              </>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+      {/* Emulador SWF fullscreen */}
+      {isPlaying && swfUrl && (
+        <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black bg-opacity-90">
+          <button
+            onClick={closeEmulator}
+            className="absolute top-4 right-4 text-white bg-red-600 hover:bg-red-700 rounded-full p-2 z-50"
+            title="Fechar"
+          >
+            <X size={20} />
+          </button>
+          <div className="w-full h-full flex items-center justify-center">
+            <div ref={ruffleContainerRef} className="w-full h-full" />
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 

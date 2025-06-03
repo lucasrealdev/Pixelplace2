@@ -13,21 +13,7 @@ import type {
 import supabase from './supabaseClient';
 import bcrypt from 'bcryptjs';
 
-// Utiliza localStorage para manter o usuário logado
-const LOCAL_USER_KEY = 'pixelplace_user_id';
-let cachedUser: User | null = null;
-
 // ================= USUÁRIO =================
-export async function getCurrentUser(): Promise<User | null> {
-  if (cachedUser) return cachedUser;
-  const userId = localStorage.getItem(LOCAL_USER_KEY);
-  if (!userId) return null;
-  const { data } = await supabase.from('users').select('*').eq('id', Number(userId)).single();
-  if (!data) return null;
-  cachedUser = data;
-  return data;
-}
-
 export async function getUserById(userId: number): Promise<User | null> {
   const { data } = await supabase.from('users').select('*').eq('id', userId).single();
   return data;
@@ -41,7 +27,6 @@ export async function updateUserBalance(userId: number, newBalance: number): Pro
     .select()
     .single();
   if (error) throw error;
-  if (data) cachedUser = data;
   return data;
 }
 
@@ -51,7 +36,6 @@ export async function getAvailableAccounts(): Promise<User[]> {
   return data || [];
 }
 
-// Atualiza o status de is_account_in_trade do usuário
 export async function updateUserAccountTradeStatus(userId: number, inTrade: boolean): Promise<User | null> {
   const { data, error } = await supabase
     .from('users')
@@ -60,7 +44,6 @@ export async function updateUserAccountTradeStatus(userId: number, inTrade: bool
     .select()
     .single();
   if (error) throw error;
-  if (data) cachedUser = data;
   return data;
 }
 
@@ -536,15 +519,12 @@ export async function getGameSwfUrl(gameId: number, userId: number): Promise<str
 
 export async function registerUser(userName: string, password: string): Promise<User | null> {
   if (userName.length < 5 || userName.length > 25) throw new Error('Nome de usuário deve ter entre 5 e 25 caracteres');
-  // Validação de senha forte
   const strongPassword = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).{8,}$/;
   if (!strongPassword.test(password)) {
     throw new Error('A senha deve ter no mínimo 8 caracteres, incluindo números, letras maiúsculas, minúsculas e caracteres especiais.');
   }
-  // Verifica se já existe
   const { data: existing } = await supabase.from('users').select('id').eq('userName', userName).single();
   if (existing) throw new Error('Nome de usuário já está em uso');
-  // Hash da senha
   const password_hash = await bcrypt.hash(password, 10);
   const { data, error } = await supabase.from('users').insert([{
     userName,
@@ -554,10 +534,6 @@ export async function registerUser(userName: string, password: string): Promise<
     is_account_in_trade: false
   }]).select().single();
   if (error) throw error;
-  if (data) {
-    localStorage.setItem(LOCAL_USER_KEY, String(data.id));
-    cachedUser = data;
-  }
   return data;
 }
 
@@ -566,14 +542,7 @@ export async function loginUser(userName: string, password: string): Promise<Use
   if (!user) throw new Error('Usuário ou senha inválidos');
   const valid = await bcrypt.compare(password, user.password_hash);
   if (!valid) throw new Error('Usuário ou senha inválidos');
-  localStorage.setItem(LOCAL_USER_KEY, String(user.id));
-  cachedUser = user;
   return user;
-}
-
-export function logoutUser() {
-  localStorage.removeItem(LOCAL_USER_KEY);
-  cachedUser = null;
 }
 
 // ================= CUPONS =================

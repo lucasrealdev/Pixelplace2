@@ -14,6 +14,7 @@ import { useStoreActions } from "../helpers/useStoreActions";
 import type { Game, UserGame } from "../services/entities";
 import { toast } from "react-toastify";
 import AuthModal from '../components/AuthModal';
+import { usePlayGame } from "../helpers/usePlayGame";
 
 export default function Store() {
   // ========== GLOBAL HOOKS ==========
@@ -29,6 +30,7 @@ export default function Store() {
     addToTrade,
     removeFromTrade,
   } = useStoreActions();
+  const { playGame, isPlaying, swfUrl, closeEmulator, ruffleContainerRef } = usePlayGame();
 
   // ========== LOCAL STATE ==========
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
@@ -44,6 +46,8 @@ export default function Store() {
   const filtersRef = useRef<HTMLDivElement>(null);
   const urlCategoryApplied = useRef<boolean>(false);
   const topbarInputRef = useRef<HTMLInputElement>(null);
+  const [loadingTradeIds, setLoadingTradeIds] = useState<number[]>([]);
+  const [loadingPlayIds, setLoadingPlayIds] = useState<number[]>([]);
 
   // ========== EFFECTS ==========
   useEffect(() => {
@@ -170,12 +174,21 @@ export default function Store() {
   const handleTradeGame = (game: Game) => {
     navigate(`/trade?search=${encodeURIComponent(game.title)}`);
   };
+  const handlePlayGame = async (userGame: UserGame) => {
+    setLoadingPlayIds((prev) => [...prev, userGame.id]);
+    await playGame(userGame);
+    setTimeout(() => {
+      setLoadingPlayIds((prev) => prev.filter((id) => id !== userGame.id));
+    }, 1000);
+  };
   const handleToggleGameTrade = async (userGame: UserGame) => {
+    setLoadingTradeIds((prev) => [...prev, userGame.id]);
     if (userGame.in_trade) {
       await removeFromTrade(userGame);
     } else {
       await addToTrade(userGame);
     }
+    setLoadingTradeIds((prev) => prev.filter((id) => id !== userGame.id));
   };
   const handleTagClick = (tag: string) => {
     setSelectedTags((prev) =>
@@ -312,6 +325,8 @@ export default function Store() {
                   {/* Mostra jogos da biblioteca se pesquisar */}
                   {showSearchedOwned && searchedOwnedGames.map(({ userGame, game }) => {
                     if (!userGame || !game) return null;
+                    const isPlayLoading = loadingPlayIds.includes(userGame.id);
+                    const isTradeLoading = loadingTradeIds.includes(userGame.id);
                     return (
                       <GameCard
                         key={game.id}
@@ -320,12 +335,21 @@ export default function Store() {
                         showPrice={false}
                         primaryLabel={
                           <span className="flex items-center gap-2">
-                            <Play size={16} /> Jogar
+                            {isPlayLoading ? (
+                              <Loader2 size={16} className="animate-spin" />
+                            ) : (
+                              <Play size={16} />
+                            )} Jogar
                           </span>
                         }
+                        onPrimaryAction={() => handlePlayGame(userGame)}
                         secondaryLabel={
                           <span className="flex items-center gap-2">
-                            <Repeat size={16} />
+                            {isTradeLoading ? (
+                              <Loader2 size={16} className="animate-spin" />
+                            ) : (
+                              <Repeat size={16} />
+                            )}
                             {userGame.in_trade ? "Remover da troca" : "Adicionar para troca"}
                           </span>
                         }
@@ -464,6 +488,20 @@ export default function Store() {
           </div>
         </div>
       </div>
+      {isPlaying && swfUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-90">
+          <button
+            onClick={closeEmulator}
+            className="absolute top-4 right-4 text-white bg-red-600 hover:bg-red-700 rounded-full p-2 z-50"
+            title="Fechar"
+          >
+            <X size={20} />
+          </button>
+          <div className="w-full h-full flex items-center justify-center">
+            <div ref={ruffleContainerRef} className="w-full h-full" />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

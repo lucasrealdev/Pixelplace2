@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { useAuthActions } from '../helpers/useAuthActions';
 import { Eye, EyeOff } from 'lucide-react';
+import { useAuth, setUserAndCache } from '../contexts/AppDataContext';
 
-export default function AuthModal({ onClose, onLogin }: { onClose: () => void, onLogin: (user: any) => void }) {
+export default function AuthModal({ onClose, onLogin }: { onClose: () => void, onLogin: () => void }) {
   const [isRegister, setIsRegister] = useState(false);
   const [userName, setUserName] = useState('');
   const [password, setPassword] = useState('');
@@ -10,6 +11,7 @@ export default function AuthModal({ onClose, onLogin }: { onClose: () => void, o
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const { login, register } = useAuthActions();
+  const { reloadUser } = useAuth();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -22,7 +24,9 @@ export default function AuthModal({ onClose, onLogin }: { onClose: () => void, o
       } else {
         user = await login(userName, password);
       }
-      onLogin(user);
+      setUserAndCache(user);
+      await reloadUser();
+      onLogin();
       onClose();
     } catch (err: any) {
       setError(err.message || 'Erro ao autenticar');

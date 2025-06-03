@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from "react";
 import type { User, Game, Trade, UserGame, Transaction, Cart, Tag, TradeUserGame } from "../services/entities";
 import {
-  getCurrentUser,
   getAllGames,
   getAllTags,
   getWishlistGames,
@@ -13,12 +12,11 @@ import {
   getCartByUserId,
   getTradesForUser,
   getTradeUserGamesByTradeIds,
-  logoutUser,
   getAllUsers
 } from "../services/dataService";
 import { getRecentlyAddedGames, getFeaturedGames } from '../helpers/uiHelpers';
 
-const CACHE_KEYS = {
+export const CACHE_KEYS = {
   GAMES: 'cache_games',
   TAGS: 'cache_tags',
   ACCOUNTS: 'cache_accounts',
@@ -32,10 +30,10 @@ const CACHE_KEYS = {
 } as const;
 
 const CACHE_EXPIRATION = {
-  SHORT: 1 * 60 * 1000,   // 5 minutos
-  MEDIUM: 3 * 60 * 1000,  // 15 minutos
+  SHORT: 1 * 60 * 1000,   // 1 minuto
+  MEDIUM: 3 * 60 * 1000,  // 3 minutos
   LONG: 7 * 60 * 1000, // 7 minutos
-  SUPERLONG: 10.080 * 60 * 1000 // 7 dias
+  SUPERLONG: 7 * 24 * 60 * 60 * 1000 // 7 dias
 } as const;
 
 interface CacheData<T> {
@@ -43,7 +41,7 @@ interface CacheData<T> {
   timestamp: number;
 }
 
-const cacheHelper = {
+export const cacheHelper = {
   get<T>(key: string, maxAge: number): T | null {
     try {
       const cached = localStorage.getItem(key);
@@ -244,14 +242,11 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // ================ RELOADS ================
 
   const reloadUser = useCallback(async () => {
-    const user = await getCurrentUser();
-    setCurrentUser(user);
-    cacheHelper.set(CACHE_KEYS.AUTH, user);
+    const cached = cacheHelper.get<User | null>(CACHE_KEYS.AUTH, CACHE_EXPIRATION.SUPERLONG);
+    setCurrentUser(cached || null);
   }, []);
 
   const removeUser = useCallback(() => {
-    logoutUser();
-
     setUserGames([]);
     setTrades([]);
     setWishlistGames([]);
@@ -289,30 +284,23 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const reloadTrades = useCallback(async () => {
     let user = currentUser;
-  
     if (!user) {
-      user = await getCurrentUser();
-      if (!user) {
-        setTrades([]);
-        setTradeUserGames([]);
-        setTradeUserGameMap({});
-        cacheHelper.set(CACHE_KEYS.TRADES, {
-          trades: [],
-          tradeUserGames: [],
-          tradeUserGameMap: {}
-        });
-        return;
-      }
+      setTrades([]);
+      setTradeUserGames([]);
+      setTradeUserGameMap({});
+      cacheHelper.set(CACHE_KEYS.TRADES, {
+        trades: [],
+        tradeUserGames: [],
+        tradeUserGameMap: {}
+      });
+      return;
     }
-  
     logApiCall('getTradesForUser', 'Trades');
     const loadedTrades = await getTradesForUser(user.id);
     setTrades(loadedTrades);
     const tradeIds = loadedTrades.map(t => t.id);
-  
     let tradeUserGamesData: TradeUserGame[] = [];
     let tradeUserGameMap: Record<number, any> = {};
-  
     if (tradeIds.length > 0) {
       logApiCall('getTradeUserGamesByTradeIds', 'Trades');
       tradeUserGamesData = await getTradeUserGamesByTradeIds(tradeIds) || [];
@@ -324,7 +312,6 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
         return acc;
       }, {} as Record<number, any>);
     }
-
     setTradeUserGames(tradeUserGamesData);
     setTradeUserGameMap(tradeUserGameMap);
     cacheHelper.set(CACHE_KEYS.TRADES, {
@@ -332,19 +319,14 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
       tradeUserGames: tradeUserGamesData,
       tradeUserGameMap: tradeUserGameMap
     });
-  }, [currentUser]);  
+  }, [currentUser]);
 
   const reloadUserGames = useCallback(async () => {
     let user = currentUser;
-
     if (!user) {
-      user = await getCurrentUser();
-      if (!user) {
-        setUserGames([]);
-        return cacheHelper.remove(CACHE_KEYS.USER_GAMES);
-      }
+      setUserGames([]);
+      return cacheHelper.remove(CACHE_KEYS.USER_GAMES);
     }
-
     logApiCall('getUserGames', 'UserGames');
     const userGamesData = await getUserGames(user.id);
     setUserGames(userGamesData);
@@ -381,7 +363,7 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, []);
 
   const reloadCart = useCallback(async () => {
-    const user = await getCurrentUser();
+    const user = currentUser;
     if (!user) {
       setCart(null);
       return cacheHelper.remove(CACHE_KEYS.CART);
@@ -390,7 +372,7 @@ export const AppDataProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const cartData = await getCartByUserId(user.id);
     setCart(cartData);
     cacheHelper.set(CACHE_KEYS.CART, cartData);
-  }, []);
+  }, [currentUser]);
 
   const reloadAllUsers = useCallback(async () => {
     const users = await getAllUsers();
@@ -496,3 +478,8 @@ function useContextGuard<T>(context: React.Context<T | undefined>, hookName: str
   if (!ctx) throw new Error(`${hookName} must be used within AppDataProvider`);
   return ctx;
 }
+
+export const setUserAndCache = (user: User | null, setCurrentUserFn?: (u: User | null) => void) => {
+  cacheHelper.set(CACHE_KEYS.AUTH, user);
+  if (setCurrentUserFn) setCurrentUserFn(user);
+};

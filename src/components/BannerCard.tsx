@@ -3,12 +3,18 @@ import type { Game } from '../services/entities';
 
 interface BannerCardProps {
   games: Game[];
+  onBannerClick?: (game: Game) => void;
 }
 
-export default function BannerCard({ games }: BannerCardProps) {
+export default function BannerCard({ games, onBannerClick }: BannerCardProps) {
   const [current, setCurrent] = useState(0);
   const timer = useRef<NodeJS.Timeout | null>(null);
   const hasMultiple = games.length > 1;
+
+  // Corrige o índice se games.length mudar
+  useEffect(() => {
+    if (current >= games.length) setCurrent(0);
+  }, [games.length]);
 
   // Avança para o próximo slide
   const nextSlide = () => setCurrent((i) => (i + 1) % games.length);
@@ -25,7 +31,14 @@ export default function BannerCard({ games }: BannerCardProps) {
   const currentGame = games[current];
 
   return (
-    <div className="rounded-lg overflow-hidden mb-6 md:mb-8 relative hover:shadow-xl transition-all hover:translate-y-[-2px] cursor-pointer">
+    <div
+      className="rounded-lg overflow-hidden mb-6 md:mb-8 relative hover:shadow-xl transition-all hover:translate-y-[-2px] cursor-pointer"
+      onClick={() => onBannerClick && onBannerClick(currentGame)}
+      tabIndex={0}
+      role="button"
+      aria-label={`Abrir detalhes de ${currentGame.title}`}
+      onKeyDown={e => { if ((e.key === 'Enter' || e.key === ' ') && onBannerClick) onBannerClick(currentGame); }}
+    >
       <div className="relative h-48 sm:h-64 md:h-80 lg:h-96 xl:h-[28rem] 2xl:h-[32rem] w-full flex flex-col justify-end">
         <img
           src={currentGame.banner || currentGame.image}
@@ -48,7 +61,7 @@ export default function BannerCard({ games }: BannerCardProps) {
             {games.map((_, i) => (
               <span
                 key={i}
-                onClick={() => { setCurrent(i); timer.current && clearInterval(timer.current); timer.current = setInterval(nextSlide, 5000); }}
+                onClick={e => { e.stopPropagation(); setCurrent(i); timer.current && clearInterval(timer.current); timer.current = setInterval(nextSlide, 5000); }}
                 className={`w-2.5 h-2.5 rounded-full mx-1 cursor-pointer transition-all duration-300 ${i === current ? 'bg-cyan-300 opacity-90 scale-110' : 'bg-gray-400 opacity-50'}`}
                 aria-label={`Selecionar destaque ${i + 1}`}
                 tabIndex={0}

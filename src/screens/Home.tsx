@@ -2,10 +2,12 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "../components/menu/Sidebar";
 import Topbar from "../components/menu/Topbar";
-import Tags from "../components/Tags";
+import FeaturedTags from "../components/Tags";
 import BannerCard from "../components/BannerCard";
 import { useGames } from "../contexts/AppDataContext";
 import GameCard from "../components/GameCard";
+import GameDetailModal from "../components/GameDetailModal";
+import type { Game } from "../services/entities";
 
 export default function Home() {
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
@@ -15,6 +17,10 @@ export default function Home() {
 
   // Buscar jogos e categorias do contexto
   const { tags, recentlyAddedGames, featuredGames } = useGames();
+
+  // Estado para modal de detalhes do jogo
+  const [modalOpen, setModalOpen] = useState(false);
+  const [selectedGame, setSelectedGame] = useState<Game | null>(null);
 
   // Função para navegar para a Store filtrando por categoria
   const handleTagClick = (tag: string) => {
@@ -29,6 +35,12 @@ export default function Home() {
     prevSearch.current = search;
   }, [search, navigate]);
 
+  // Função para abrir modal ao clicar no banner
+  const handleBannerClick = (game: Game) => {
+    setSelectedGame(game);
+    setModalOpen(true);
+  };
+
   return (
     <div className="flex h-screen bg-gray-800 text-white overflow-hidden">
       <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} active="home" />
@@ -38,8 +50,9 @@ export default function Home() {
           <div className="mx-auto">
             {/* Jogo(s) em destaque */}
             {featuredGames.length > 0 && (
-              <BannerCard games={featuredGames} />
+              <BannerCard games={featuredGames} onBannerClick={handleBannerClick} />
             )}
+            <GameDetailModal game={selectedGame as Game} open={modalOpen && !!selectedGame} onClose={() => setModalOpen(false)} />
             <div className="mb-6">
               <div className="flex justify-between items-center mb-3 md:mb-4">
                 <h3 className="text-base md:text-lg font-medium flex items-center">
@@ -64,15 +77,13 @@ export default function Home() {
               </div>
             </div>
             {/* Categorias em destaque */}
-            {tags && tags.length > 0 ? (
-              <Tags
+            {tags && tags.length > 0 && (
+              <FeaturedTags
                 tags={tags}
                 onTagsClick={handleTagClick}
                 maxToShow={6}
                 title="Categorias em Destaque"
               />
-            ) : (
-              <></>
             )}
           </div>
         </div>
