@@ -1,5 +1,7 @@
 # 🎮 PixelPlace
 
+## Projeto feito para demonstrar habilidades em front-end, não leve em consideração o backend.
+
 **PixelPlace** é uma plataforma inovadora para gamers modernos, onde você pode jogar diretamente do navegador, trocar jogos e contas com outros usuários, e aproveitar uma experiência segura, responsiva e intuitiva.
 
 ## ✨ Por que escolher o PixelPlace?
